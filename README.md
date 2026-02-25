@@ -6,21 +6,16 @@ SaniTag_CLI
 
 SaniTag_CLI is a hardened DevSecOps -oriented command line tool for auditing and sanitizing music metadata filenames. It removes ad watermarks, enforces safe naming, prevents path traversal exploits, and integrates with MusicBrainz for cloud metadata enhancement.
 
-🌟 Features
+🌟 Features & Technical Pillars
+Polyglot Metadata Extraction: Seamlessly abstracts metadata retrieval across multiple containers using EasyID3 for MP3 and mutagen.mp4 for M4A/AAC files.
 
-Environment based configuration (.env)
+Regex-Based Signal Recovery: Implements compiled regular expressions to identify and strip high-frequency "ad-watermarks" (e.g., yt1s -), restoring the filename to its canonical metadata state.
 
-Principle of Least Privilege (SAFE_ZONE enforcement)
+Environment-Agnostic Configuration: Utilizes os.getenv with safe defaults (./MP3), ensuring the tool is portable across Windows, Linux, and CI/CD runners without hardcoded path dependencies.
 
-Exponential backoff with jitter for API calls
+Atomic Audit Logic: Employs a decoupled "Plan-then-Execute" workflow. The modify_music_title function generates a transition mapping, which is then audited and logged before any filesystem rename operations occur.
 
-Sanitization of ad watermarks and unsafe filesystem characters
-
-Collision handling with user prompts or automatic suffixing
-
-Logging filters to suppress noisy MusicBrainz messages
-
-Rotating log files for sysadmin safety
+Defensive Logging: Standardizes system telemetry using Python’s logging module, providing timestamps and severity levels suitable for sysadmin oversight.
 
 CLI flags for dry run, apply, auto approve, and log file output
 
