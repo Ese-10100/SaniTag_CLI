@@ -133,3 +133,6 @@ Commercial Contracts: Separate agreements for commercial customers outlining neg
 These documents create legally binding contracts enabling the enforcement of royalty payments and usage restrictions.
 
 For inquiries about commercial licensing, please contact the author at eseokpongs13@gmail.com.
+
+# SaniTag_CLI
+SaniTag_CLI is a hardened DevSecOps‑oriented command line tool for auditing and sanitizing music metadata filenames. It removes ad watermarks, enforces safe naming, prevents path traversal exploits, and integrates with MusicBrainz for cloud metadata enhancement.
