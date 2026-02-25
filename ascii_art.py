@@ -31,7 +31,7 @@ def insertAList(arr):
     arr.insert(1, "encryption".index("c"))  # Inserts 2 at index 1
 
     for ele in arr:
-        print(ele[-1])  # Prints the last character of each element
+        print(arr[-1])  # Prints the last character of each element
 
 
 
