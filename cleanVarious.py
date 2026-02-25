@@ -2,11 +2,13 @@ import os
 import re
 import sys
 import logging
+from dotenv import load_dotenv
 from pathlib import Path
 from mutagen.easyid3 import EasyID3
 from mutagen.mp4 import MP4
 
-music_dir = Path(r"C:/Users/HP/Music/mp3")
+load_dotenv()
+music_dir = Path(os.getenv('MUSIC_DIRECTORY', './MP3'))
 
 # Regex to remove leading numbers and "Various Artists -"
 yt1s_PATTERN = re.compile(r"^yt1s\s*-\s*(.+)$", re.IGNORECASE) 
