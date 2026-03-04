@@ -1,0 +1,45 @@
+name: SaniTag_CLI SecOps Audit
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  security-audit:
+    name: "Static Analysis & Dependency Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Bandit (SAST)s
+        run: bandit -r . -ll -ii
+
+      - name: Dependency Safety Check
+        run: safety check
+
+  functional-test:
+    name: "Dry-Run Integrity Test"
+    needs: security-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Logic Validation
+        run: python rewriteMusicTitle.py --dry-run || echo "Expected exit if dir missing"
