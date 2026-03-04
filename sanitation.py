@@ -11,6 +11,7 @@ from mutagen.easyid3 import EasyID3
 from mutagen.mp4 import MP4
 import musicbrainzngs
 from logging.handlers import RotatingFileHandler
+from metadata_sanitizer import whitelist_scrub, deep_sanitize_metadata
 
 # --- LOGGING FILTERS ---
 class IgnoreTypeIdFilter(logging.Filter):
@@ -25,9 +26,10 @@ class OnlyTypeIdFilter(logging.Filter):
 load_dotenv()
 
 AD_PATTERNS = [
-    r"\| SonsHub\.com", r"www\.sonshub\.com", r"SonsHub\.com",
-    r"SongsLover\.com", r"www\.", r"\.com", r"naijatrend",
-    r"fazmusic", r"yt1s", r"melodydel", r"kuwo", r"SonsHub",
+    r"\| SonsHub\.com", r"^yt1s\s*-\s*(.+)$", r"www\.sonshub\.com",
+    r"SonsHub\.com", r"SongsLover\.(com|club|icu)", r"songslover\.(com|club|icu)",
+    r"www\.", r"\.com", r"\.club", r"naijatrend", r"fazmusic", r"yt1s",
+    r"melodydel", r"kuwo", r"Tooxclusive", r"Naijaloaded", r"SonsHub"
 ]
 
 MB_EMAIL = os.getenv("MB_EMAIL")
@@ -35,7 +37,7 @@ if not MB_EMAIL:
     sys.exit("Critical Error: MB_EMAIL missing from environment.")
 musicbrainzngs.set_useragent("SaniTag-CLI", "1.3", MB_EMAIL)
 
-RAW_PATH = os.getenv("MUSIC_DIRECTORY")
+RAW_PATH = "/data/data/com.termux/files/home/storage/downloads/SaniTag_CLI" ''' or os.getenv("MUSIC_DIRECTORY")'''
 if not RAW_PATH:
     sys.exit("Configuration Error: MUSIC_DIRECTORY not set.")
 SAFE_ZONE = Path(RAW_PATH).resolve()
@@ -71,17 +73,23 @@ def backoff_api_call(func, *args, **kwargs):
     return None
 
 def fetch_metadata(title, artist):
+    clean_t = clean_string(title)
+    clean_a = clean_string(artist)
+
     def mb_query():
-        time.sleep(1)
-        query = f"recording:{clean_string(title)} AND artist:{clean_string(artist)}"
+        time.sleep(1)  # API rate limit compliance
+        query = f"recording:{clean_t} AND artist:{clean_a}"
         return musicbrainzngs.search_recordings(query=query, limit=1)
 
     result = backoff_api_call(mb_query)
     if result and result.get("recording-list"):
         match = result["recording-list"][0]
-        if int(match.get("ext:score", 0)) > 80:
+        score = int(match.get("ext:score", 0))
+        if score > 90:
             return clean_string(match["title"]), clean_string(match["artist-credit"][0]["artist"]["name"])
-    return title, artist
+        else:
+            logging.warning(f"[LOW SIGNAL] Score {score}: API guess rejected for {title}.")
+    return clean_t, clean_a
 
 def secure_sanitize(text):
     clean = re.sub(r'[\\/*?:"<>|]', "", text)
@@ -106,12 +114,11 @@ def run_audit_and_exec(dry_run=True, auto_approve=False):
         try:
             if filepath.suffix.lower() == ".mp3":
                 audio = EasyID3(filepath)
-                t, a = audio.get("title", ["Unknown"])[0], audio.get("artist", ["Unknown"])[0]
+                t, a = whitelist_scrub(audio.get("title", ["Unknown"])[0]), whitelist_scrub(audio.get("artist", ["Unknown"])[0])
             else:
                 audio = MP4(filepath)
-                t, a = audio.get("\xa9nam", ["Unknown"])[0], audio.get("\xa9ART", ["Unknown"])[0]
+                t, a = whitelist_scrub(audio.get("\xa9nam", ["Unknown"])[0]), whitelist_scrub(audio.get("\xa9ART", ["Unknown"])[0])
 
-            t, a = clean_string(t), clean_string(a)
             if any(x in t.lower() for x in ["unknown", "www", "videoplayback"]) or not t:
                 logging.info(f"[CLOUD QUERY]: Fetching data for {filepath.name}")
                 t, a = fetch_metadata(t, a)
@@ -143,6 +150,9 @@ def run_audit_and_exec(dry_run=True, auto_approve=False):
                 if dry_run:
                     logging.info(f"DRY RUN: rename {old_p.name} -> {new_p.name}")
                 else:
+                    logging.info(f"Hardening Header: {old_p.name}")
+                    deep_sanitize_metadata(old_p)
+
                     if is_path_safe(new_p):
                         if new_p.exists():
                             logging.warning(f"[Collision]: {new_p.name} already exists.")
@@ -192,5 +202,3 @@ if __name__ == "__main__":
         handlers=handlers
     )
     logging.getLogger().addFilter(IgnoreTypeIdFilter())
-
-    run_audit_and_exec(dry_run=not args.apply, auto_approve=args.auto_approve)
