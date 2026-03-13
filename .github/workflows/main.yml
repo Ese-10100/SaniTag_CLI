@@ -35,6 +35,9 @@ jobs:
     name: "Dry-Run Integrity Test"
     needs: security-audit
     runs-on: ubuntu-latest
+    env:
+      MB_EMAIL: "dummy@example.com"
+      MUSIC_DIRECTORY: "/tmp/music"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
