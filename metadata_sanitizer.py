@@ -7,17 +7,19 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from mutagen import File as MutagenFile
 from mutagen.id3 import ID3
-from mutagen.mp4 import MP4
 from typing import Optional
 
 # --- CONFIG: whitelist and bad phrases ---
-_WHITELIST_RE = re.compile(r'[^A-Za-z0-9\s\-\(\)\.]')
 _BAD_PHRASES_RAW = [
-    "SongsLover", "SonsHub", "FazMusic", "yt1s",
-    "lyric_video", "lyric video", "official music video", "official video", "audio"
+    "SongsLover.com", "SonsHub", "FazMusic", "yt1s",
+    "lyric_video", "lyric video", "official music video",
+    "official video", "audio", "www.SongsLover.pk"
 ]
-_BAD_PHRASES = [re.compile(re.escape(p), re.IGNORECASE) for p in _BAD_PHRASES_RAW]
+_BAD_PHRASES_REGEX = [r"\.com", r"\.pk"]
+_BAD_PHRASES = [re.compile(re.escape(p), re.IGNORECASE) for p in _BAD_PHRASES_RAW] + \
+               [re.compile(p, re.IGNORECASE) for p in _BAD_PHRASES_REGEX]
 _TRAILING_MIX = re.compile(r'[\s\-_.|]+$')
+
 def whitelist_scrub(text: Optional[str]) -> str:
     """
     Normalize, strip disallowed characters, and remove known bad phrases.
@@ -25,11 +27,17 @@ def whitelist_scrub(text: Optional[str]) -> str:
     """
     if not text:
         return ""
-    # Normalize to reduce homoglyphs and combining characters
     s = unicodedata.normalize("NFKC", str(text))
-    # Remove disallowed characters
-    s = _WHITELIST_RE.sub("", s)
-    # Remove bad phrases (case-insensitive)
+    allowed = []
+    for char in s:
+        cat = unicodedata.category(char)
+        if cat.startswith("L") or cat.startswith("N"):   # Letters & Numbers
+            allowed.append(char)
+        elif cat == "Zs":                               # Space separator
+            allowed.append(" ")
+        elif char in "-().":                            # Safe punctuation
+            allowed.append(char)
+    s = "".join(allowed)
     for pat in _BAD_PHRASES:
         s = pat.sub("", s)
     return _TRAILING_MIX.sub("", s).strip()
@@ -38,8 +46,7 @@ def _atomic_save_audio(audio_obj, target_path: Path):
     """
     Save mutagen audio object atomically: write to temp file then replace.
     """
-    # Some mutagen save methods accept a filename; use a temp file and replace.
-    with NamedTemporaryFile(delete=False) as tmp:
+    with NamedTemporaryFile(delete=False, dir=target_path.parent) as tmp:
         tmp_name = tmp.name
     try:
         audio_obj.save(tmp_name)
@@ -51,6 +58,18 @@ def _atomic_save_audio(audio_obj, target_path: Path):
             except Exception:
                 pass
 
+def _purge_id3_frames(id3, frames, filepath):
+    for frame in frames:
+        if frame in id3:
+            logging.info("PURGING frame %s from %s", frame, filepath.name)
+            id3.delall(frame)
+
+def _sanitize_id3_tags(id3, keys):
+    for key in keys:
+        if key in id3 and getattr(id3[key], "text", None):
+            original = id3[key].text[0]
+            id3[key].text = [whitelist_scrub(original)]
+
 def deep_sanitize_metadata(filepath: Path):
     """
     Sanitize metadata for MP3 and MP4/M4A files.
@@ -61,7 +80,6 @@ def deep_sanitize_metadata(filepath: Path):
     try:
         if not isinstance(filepath, Path):
             filepath = Path(filepath)
-
         if not filepath.exists():
             logging.warning("File not found: %s", filepath)
             return
@@ -73,11 +91,9 @@ def deep_sanitize_metadata(filepath: Path):
             return
 
         if suffix == ".mp3":
-            # Ensure ID3 object
             try:
                 id3 = audio if isinstance(audio, ID3) else ID3(filepath)
             except Exception:
-                # Try to create an empty ID3 if missing
                 id3 = ID3()
                 try:
                     id3.save(str(filepath))
@@ -86,38 +102,19 @@ def deep_sanitize_metadata(filepath: Path):
                     logging.exception("Unable to initialize ID3 for %s", filepath)
                     return
 
-            # Purge frames
-            for frame in ("TIT3", "COMM", "TXXX"):
-                if frame in id3:
-                    logging.info("PURGING frame %s from %s", frame, filepath.name)
-                    id3.delall(frame)
-
-            # Sanitize core tags safely
-            for key in ("TIT2", "TPE1"):
-                if key in id3 and getattr(id3[key], "text", None):
-                    original = id3[key].text[0]
-                    cleaned = whitelist_scrub(original)
-                    id3[key].text = [cleaned]
-
+            _purge_id3_frames(id3, ("COMM", "TIT3", "TXXX"), filepath)
+            _sanitize_id3_tags(id3, ("TIT2", "TPE1"))
             _atomic_save_audio(id3, filepath)
 
         elif suffix in (".mp4", ".m4a"):
             tags = audio.tags or {}
-            # Purge common comment/description atoms
             for atom in ("\xa9cmt", "\xa9des", "desc"):
                 if atom in tags:
                     logging.info("PURGING atom %s from %s", atom, filepath.name)
-                    try:
-                        del tags[atom]
-                    except KeyError:
-                        pass
-
-            # Sanitize common name/artist atoms if present
+                    tags.pop(atom, None)
             for atom in ("\xa9nam", "\xa9ART", "©nam", "©ART"):
                 if atom in tags and isinstance(tags[atom], list) and tags[atom]:
-                    original = tags[atom][0]
-                    tags[atom] = [whitelist_scrub(original)]
-
+                    tags[atom][0] = whitelist_scrub(tags[atom][0])
             _atomic_save_audio(audio, filepath)
 
         else:
@@ -125,5 +122,4 @@ def deep_sanitize_metadata(filepath: Path):
 
     except Exception:
         logging.exception("Failed internal scrub for %s", getattr(filepath, "name", str(filepath)))
-        # Re-raise if you want the caller to handle failures; otherwise return.
         raise

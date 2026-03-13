@@ -25,7 +25,7 @@ jobs:
           pip install bandit safety
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run Bandit (SAST)s
+      - name: Run Bandit (SAST)
         run: bandit -r . -ll -ii
 
       - name: Dependency Safety Check
@@ -43,3 +43,25 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Logic Validation
         run: python rewriteMusicTitle.py --dry-run || echo "Expected exit if dir missing"
+
+  unit-tests:
+    name: "Run Compatibility Tests"
+    needs: functional-test
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run unit tests
+        run: pytest -v *_test.py
