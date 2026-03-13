@@ -48,8 +48,8 @@ def test_cache_and_lookup():
                 )
     assert cur.fetchone() is not None
     cur.execute( 
-                 "INSERT INTO metadata_cache VALUES (?, ?, ?, ?)",
-                 ("Yesterday.mp3", "Imagine Dragons", "Evolve", "Alternative")
+                 "INSERT INTO metadata_cache VALUES (?, ?)",
+                 ("Yesterday.mp3", "Imagine Dragons")
                 )
     conn.commit()
     conn.close()
