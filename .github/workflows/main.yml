@@ -42,13 +42,16 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Logic Validation
-        run: python rewriteMusicTitle.py --dry-run || echo "Expected exit if dir missing"
+        run: python sanitation.py --dry-run
 
   unit-tests:
     name: "Run Compatibility Tests"
     needs: functional-test
     runs-on: ubuntu-latest
-    steps: 
+    env:
+      MB_EMAIL: "dummy@example.com"
+      MUSIC_DIRECTORY: "/tmp/music"
+    steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
@@ -62,6 +65,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
+
+      - name: Create a temporary music directory
+        run: mkdir -p $MUSIC_DIRECTORY
 
       - name: Run unit tests
         run: pytest -v *_test.py
