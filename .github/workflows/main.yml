@@ -35,12 +35,17 @@ jobs:
     name: "Dry-Run Integrity Test"
     needs: security-audit
     runs-on: ubuntu-latest
+    env:
+      MB_EMAIL: "dummy@example.com"
+      MUSIC_DIRECTORY: "/tmp/music"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - name: Create a temporary music directory 
+        run: mkdir -p $MUSIC_DIRECTORY
       - name: Logic Validation
         run: python sanitation.py --dry-run
 
