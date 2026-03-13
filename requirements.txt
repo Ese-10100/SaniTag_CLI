@@ -1,8 +1,6 @@
-﻿bandit==1.9.4
-musicbrainzngs==0.7.1
+bandit==1.9.4
 mutagen==1.47.0
-pytest>=9.0.0
+pytest==9.0.2
 python-dotenv==1.2.1
+musicbrainzngs==
 safety==3.7.0
-
-
