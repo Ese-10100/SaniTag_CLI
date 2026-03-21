@@ -5,3 +5,5 @@ __pycache__/
 .vscode/
 *.log
 .gitattributes
+*.db
+SaniTag_CLI_ProjectProfile_v3.pdf
