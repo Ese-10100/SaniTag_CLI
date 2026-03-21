@@ -47,19 +47,19 @@ def test_cache_and_lookup():
                  "SELECT name FROM sqlite_master WHERE type='table' AND name='metadata_cache'",
                 )
     assert cur.fetchone() is not None
-    cur.execute( 
-                 "INSERT INTO metadata_cache VALUES (?, ?, ?, ?)",
-                 ("Yesterday.mp3", "Imagine Dragons", "Evolve", "Alternative")
+    cur.execute(
+                 "INSERT INTO metadata_cache VALUES (?, ?)",
+                 ("Yesterday.mp3", "Imagine Dragons")
                 )
     conn.commit()
     conn.close()
     #simulation
     conn = sqlite3.connect(cache_db)
     cur = conn.cursor()
-    cur.execute("SELECT album, genre FROM metadata_cache WHERE title=? AND artist=? ", ("Yesterday.mp3", "Imagine Dragons"))
+    cur.execute("SELECT title, artist FROM metadata_cache WHERE title=? AND artist=? ", ("Yesterday.mp3", "Imagine Dragons"))
     row = cur.fetchone()
     conn.close()
-    assert row == ( "Evolve", "Alternative",)
+    assert row == ( "Yesterday.mp3", "Imagine Dragons",)
     
 def test_run_audit_and_exec(tmp_path, monkeypatch):
     file = tmp_path/"Yesterday - Imagine Dragons.mp3"

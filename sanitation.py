@@ -66,13 +66,14 @@ def __initSQL__():
     try:
         conn = sqlite3.connect(cache)
         cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS metadata_cache")
         cur.execute("""
-                    CREATE TABLE IF NOT EXISTS metadata_cache (
-                        title TEXT,
-                        artist TEXT,
-                        PRIMARY KEY (title, artist)
-                    )
-                    """)
+            CREATE TABLE metadata_cache (
+                title TEXT,
+                artist TEXT,
+                UNIQUE (title, artist)
+            )
+        """)
         conn.commit()
         conn.close()    
     except Exception as e:
