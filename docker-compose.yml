@@ -1,0 +1,9 @@
+services:
+  sanitag-cli:
+    build: .
+    image: sanitag-cli:latest
+    container_name: sanitag-cli
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["python", "sanitation.py"]
