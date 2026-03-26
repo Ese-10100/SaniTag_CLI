@@ -102,7 +102,7 @@ jobs:
   notify:
     name: "Failure notification"
     runs-on: ubuntu-latest
-    if: always()
+    if: failure()
     steps:
       - name: Send email notification on failure
         uses: dawidd6/action-send-mail@v3
