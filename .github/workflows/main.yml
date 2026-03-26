@@ -47,14 +47,12 @@ jobs:
       - name: Create a temporary music directory 
         run: mkdir -p $MUSIC_DIRECTORY
       - name: Logic Validation
-
         run: python sanitation.py --auto-approve 
 
   unit-tests:
     name: "Run Compatibility Tests"
     needs: functional-test
     runs-on: ubuntu-latest
-
     env:
       MB_EMAIL: "dummy@example.com"
       MUSIC_DIRECTORY: "/tmp/music"
