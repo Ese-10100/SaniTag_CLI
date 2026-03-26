@@ -47,7 +47,7 @@ def test_cache_and_lookup():
                  "SELECT name FROM sqlite_master WHERE type='table' AND name='metadata_cache'",
                 )
     assert cur.fetchone() is not None
-    cur.execute( 
+    cur.execute(
                  "INSERT INTO metadata_cache VALUES (?, ?)",
                  ("Yesterday.mp3", "Imagine Dragons")
                 )
@@ -68,5 +68,3 @@ def test_run_audit_and_exec(tmp_path, monkeypatch):
     run_audit_and_exec(dry_run=True, auto_approve=True, batch_size=1)
     # Check if the file has been renamed
     assert file.exists()
-    
-    
