@@ -68,5 +68,3 @@ def test_run_audit_and_exec(tmp_path, monkeypatch):
     run_audit_and_exec(dry_run=True, auto_approve=True, batch_size=1)
     # Check if the file has been renamed
     assert file.exists()
-    
-    
