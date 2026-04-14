@@ -6,13 +6,8 @@ services:
     working_dir: /app
     environment:
       - MUSIC_DIRECTORY=/app/music
-      - MB_EMAIL = ${MB_EMAIL}
+      - MB_EMAIL=${MB_EMAIL}
     volumes:
+      - /path/to/your/music:/app/music
       - .:/app
-    command: ["python", "sanitation.py", "--apply", "--auto-approve"]
-    depends_on:
-      - ffmpeg
-  ffmpeg:
-    image: jrottenberg/ffmpeg:latest
-    container_name: ffmpeg
-    entrypoint: ["ffmpeg"]
+    command: ["--apply", "--auto-approve"]
