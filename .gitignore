@@ -7,3 +7,7 @@ __pycache__/
 .gitattributes
 *.db
 *.pdf
+inspectdb.py
+story*.txt
+needs_remux_report.txt
+sanitagv1.txt

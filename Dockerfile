@@ -8,15 +8,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # 3. Create a non-root user for security
 RUN useradd -m appuser
 
-# 4. Set working directory and switch to non-root user
+# 4. Recent modificiation: Install ffmpeg for remuxing functionality
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# 5. Set working directory and switch to non-root user
 WORKDIR /app
 
-# 5. Copy requirements first for caching
+# 6. Copy requirements first for caching
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 6. Copy the rest of the project files
+# 7. Copy the rest of the project files
 COPY . /app/
 
-# 7. Define the app's entrypoint
+# 8. Define the app's entrypoint
 ENTRYPOINT [ "python", "sanitation.py" ]
