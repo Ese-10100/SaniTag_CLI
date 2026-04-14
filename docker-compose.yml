@@ -4,6 +4,15 @@ services:
     image: sanitag-cli:latest
     container_name: sanitag-cli
     working_dir: /app
+    environment:
+      - MUSIC_DIRECTORY=/app/music
+      - MB_EMAIL = ${MB_EMAIL}
     volumes:
       - .:/app
-    command: ["python", "sanitation.py"]
+    command: ["python", "sanitation.py", "--apply", "--auto-approve"]
+    depends_on:
+      - ffmpeg
+  ffmpeg:
+    image: jrottenberg/ffmpeg:latest
+    container_name: ffmpeg
+    entrypoint: ["ffmpeg"]

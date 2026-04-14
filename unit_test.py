@@ -80,7 +80,7 @@ def test_mp3_with_tags(monkeypatch, tmp_path):
     file_path.write_text("dummy")
 
     monkeypatch.setattr("metadata_utils.audio_utils.MutagenFile",
-                        lambda *a, **kw: DummyAudio({"©nam": ["Disrespectful"], "©ART": ["Doja Cat"]}))
+                        lambda *a, **kw: DummyAudio({"TIT2": ["Disrespectful"], "TPE1": ["Doja Cat"]}))
 
     tags = view_audio_file(file_path)
     assert tags["title"].lower() == "disrespectful"
