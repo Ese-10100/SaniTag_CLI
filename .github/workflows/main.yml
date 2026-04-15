@@ -32,7 +32,7 @@ jobs:
         run: bandit -r . -ll -ii
 
       - name: Dependency Safety Check
-        run: safety scan --api-key ${{ secrets.SAFETY_API_TOKEN }} --full-report
+        run: safety scan --api-key ${{ secrets.SAFETY_API_KEY }} --full-report
 
   functional-test:
     name: "Dry-Run Integrity Test"
