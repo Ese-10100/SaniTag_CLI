@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  
+  release:
+    types: [published]
 
 jobs:
   security-audit:
@@ -72,9 +75,13 @@ jobs:
           pip install pytest
       - name: Create a temporary music directory
         run: mkdir -p $MUSIC_DIRECTORY
-
-      - name: Run unit tests
-        run: pytest -v *_test.py
+      - name: Create dummy audio file
+        run: |
+          mkdir -p $MUSIC_DIRECTORY
+          dd if=/dev/urandom bs=1024 count=100 | ffmpeg -f s16le -ar 44100 -ac 1 -i - /tmp/music/test.mp3 2>/dev/null || true
+              
+            - name: Run unit tests
+              run: pytest -v *_test.py
   publish:
       name: "Publish Docker Image"
       needs: unit-tests
@@ -102,13 +109,14 @@ jobs:
   notify:
     name: "Failure notification"
     runs-on: ubuntu-latest
+    needs: [security-audit, functional-test, unit-tests, publish]
     if: failure()
     steps:
       - name: Send email notification on failure
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
-          server_port: 465 #SSL for TLS use 587
+          server_port: 465 # 465 for SSL, for TLS use 587
           username: ${{ secrets.NO_REPLY_EMAIL }}
           password: ${{ secrets.NO_REPLY_PASSWORD }}
           subject: "Yielding SaniTag_CLI jobs failure"
