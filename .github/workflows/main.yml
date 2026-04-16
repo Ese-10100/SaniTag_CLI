@@ -90,8 +90,7 @@ jobs:
       - name: Create dummy audio file
         run: |
           mkdir -p $MUSIC_DIRECTORY
-          dd if=/dev/urandom bs=1024 count=100 | ffmpeg -f s16le -ar 44100 -ac 1 -i - $MUSIC_DIRECTORY/test.mp3 2>/dev/null || true
-
+          ffmpeg -f lavfi -i "anoisesrc=color=pink" -t 5 $MUSIC_DIRECTORY/test.mp3 -y
       - name: Run unit tests
         run: pytest -v *_test.py
 
