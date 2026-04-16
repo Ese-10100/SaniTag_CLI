@@ -39,10 +39,24 @@ jobs:
         run: "echo Key length: ${#SAFETY_API_KEY}" # This solved the issue of the previous run
         env:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
-
+  
+  create-test-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Create dummy audio
+        run: |
+          mkdir -p /tmp/music
+          ffmpeg -f lavfi -i "anoisesrc=color=pink" -t 5 /tmp/music/test.mp3 -y
+      - name: Cache audio artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-audio
+          path: /tmp/music
   functional-test:
     name: "Dry-Run Integrity Test"
-    needs: security-audit
+    needs: [security-audit, create-test-audio]
     runs-on: ubuntu-latest
     env:
       MB_EMAIL: "dummy@example.com"
@@ -53,19 +67,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Create a temporary music directory
-        run: mkdir -p $MUSIC_DIRECTORY
-      - name: Create dummy audio file
-        run: |
-          mkdir -p $MUSIC_DIRECTORY
-          ffmpeg -f lavfi -i "anoisesrc=color=pink" -t 5 $MUSIC_DIRECTORY/test.mp3 -y
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-audio
+          path: /tmp/music
       - name: Logic Validation
         run: python sanitation.py --auto-approve
 
 
   unit-tests:
     name: "Run Compatibility Tests"
-    needs: functional-test
+    needs: [create-test-audio, functional-test]
     runs-on: ubuntu-latest
     env:
       MB_EMAIL: "dummy@example.com"
@@ -88,10 +100,10 @@ jobs:
       - name: Create a temporary music directory
         run: mkdir -p $MUSIC_DIRECTORY
 
-      - name: Create dummy audio file
-        run: |
-          mkdir -p $MUSIC_DIRECTORY
-          ffmpeg -f lavfi -i "anoisesrc=color=pink" -t 5 $MUSIC_DIRECTORY/test.mp3 -y
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-audio
+          path: /tmp/music
       - name: Run unit tests
         run: pytest -v *_test.py
 
@@ -123,8 +135,8 @@ jobs:
   notify:
     name: "Failure notification"
     runs-on: ubuntu-latest
-    needs: [security-audit, functional-test, unit-tests, publish]
-    if: failure()
+    needs: [security-audit, functional-test, unit-tests]
+    if: failure() && github.event_name != 'pull_request'
     steps:
       - name: Send email notification on failure
         uses: dawidd6/action-send-mail@v3
