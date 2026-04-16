@@ -36,7 +36,7 @@ jobs:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
 
       - name: Debug Safety Key
-        run: "echo Key length: ${#SAFETY_API_KEY}"
+        run: "echo Key length: ${#SAFETY_API_KEY}" # This solved the issue of the previous run
         env:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
 
@@ -55,8 +55,12 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Create a temporary music directory
         run: mkdir -p $MUSIC_DIRECTORY
+      - name: Create dummy audio file
+        run: |
+          dd if=/dev/urandom bs=1024 count=100 | ffmpeg -f s16le -ar 44100 -ac 1 -i - $MUSIC_DIRECTORY/test.mp3 2>/dev/null || true
       - name: Logic Validation
         run: python sanitation.py --auto-approve
+
 
   unit-tests:
     name: "Run Compatibility Tests"
@@ -86,7 +90,7 @@ jobs:
       - name: Create dummy audio file
         run: |
           mkdir -p $MUSIC_DIRECTORY
-          dd if=/dev/urandom bs=1024 count=100 | ffmpeg -f s16le -ar 44100 -ac 1 -i - /tmp/music/test.mp3 2>/dev/null || true
+          dd if=/dev/urandom bs=1024 count=100 | ffmpeg -f s16le -ar 44100 -ac 1 -i - $MUSIC_DIRECTORY/test.mp3 2>/dev/null || true
 
       - name: Run unit tests
         run: pytest -v *_test.py
