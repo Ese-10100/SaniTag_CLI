@@ -5,7 +5,6 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  
   release:
     types: [published]
 
@@ -33,6 +32,13 @@ jobs:
 
       - name: Dependency Safety Check
         run: safety scan --api-key ${{ secrets.SAFETY_API_KEY }} --full-report
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+
+      - name: Debug Safety Key
+        run: "echo Key length: ${#SAFETY_API_KEY}"
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
 
   functional-test:
     name: "Dry-Run Integrity Test"
@@ -47,10 +53,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Create a temporary music directory 
+      - name: Create a temporary music directory
         run: mkdir -p $MUSIC_DIRECTORY
       - name: Logic Validation
-        run: python sanitation.py --auto-approve 
+        run: python sanitation.py --auto-approve
 
   unit-tests:
     name: "Run Compatibility Tests"
@@ -73,39 +79,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
+
       - name: Create a temporary music directory
         run: mkdir -p $MUSIC_DIRECTORY
+
       - name: Create dummy audio file
         run: |
           mkdir -p $MUSIC_DIRECTORY
           dd if=/dev/urandom bs=1024 count=100 | ffmpeg -f s16le -ar 44100 -ac 1 -i - /tmp/music/test.mp3 2>/dev/null || true
-              
-            - name: Run unit tests
-              run: pytest -v *_test.py
+
+      - name: Run unit tests
+        run: pytest -v *_test.py
+
   publish:
-      name: "Publish Docker Image"
-      needs: unit-tests
-      runs-on: ubuntu-latest
-      if: github.event_name == 'release'
-      permissions:
-        packages: write
-        contents: read
-      steps:
-        - name: Checkout repo
-          uses: actions/checkout@v4
+    name: "Publish Docker Image"
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-        - name: Log in to Docker Hub
-          uses: docker/login-action@v3
-          with:
-            username: ${{ secrets.DOCKER_USERNAME }}
-            password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-        - name: Build and push image
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            push: true
-            tags: meteredby1/sanitag-cli:${{ github.ref_name }}
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: meteredby1/sanitag-cli:${{ github.ref_name }}
+
   notify:
     name: "Failure notification"
     runs-on: ubuntu-latest
@@ -116,10 +126,10 @@ jobs:
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
-          server_port: 465 # 465 for SSL, for TLS use 587
+          server_port: 465 # SSL; for TLS use 587
           username: ${{ secrets.NO_REPLY_EMAIL }}
           password: ${{ secrets.NO_REPLY_PASSWORD }}
           subject: "Yielding SaniTag_CLI jobs failure"
-          to: ${{secrets.MY_EMAIL}}
-          from: ${{secrets.NO_REPLY_EMAIL }}
+          to: ${{ secrets.MY_EMAIL }}
+          from: ${{ secrets.NO_REPLY_EMAIL }}
           body: "You've an email. One or more of your jobs failed. Please review and correct them."
