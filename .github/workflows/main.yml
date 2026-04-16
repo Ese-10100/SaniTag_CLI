@@ -5,6 +5,8 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  release:
+    types: [published]
 
 jobs:
   security-audit:
@@ -29,11 +31,32 @@ jobs:
         run: bandit -r . -ll -ii
 
       - name: Dependency Safety Check
-        run: safety check
+        run: safety scan --api-key ${{ secrets.SAFETY_API_KEY }} --full-report
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
 
+      - name: Debug Safety Key
+        run: "echo Key length: ${#SAFETY_API_KEY}" # This solved the issue of the previous run
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+  
+  create-test-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Create dummy audio
+        run: |
+          mkdir -p /tmp/music
+          ffmpeg -f lavfi -i "anoisesrc=color=pink" -t 5 /tmp/music/test.mp3 -y
+      - name: Cache audio artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-audio
+          path: /tmp/music
   functional-test:
     name: "Dry-Run Integrity Test"
-    needs: security-audit
+    needs: [security-audit, create-test-audio]
     runs-on: ubuntu-latest
     env:
       MB_EMAIL: "dummy@example.com"
@@ -44,14 +67,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Create a temporary music directory 
-        run: mkdir -p $MUSIC_DIRECTORY
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-audio
+          path: /tmp/music
       - name: Logic Validation
-        run: python sanitation.py --auto-approve 
+        run: python sanitation.py --auto-approve
+
 
   unit-tests:
     name: "Run Compatibility Tests"
-    needs: functional-test
+    needs: [create-test-audio, functional-test]
     runs-on: ubuntu-latest
     env:
       MB_EMAIL: "dummy@example.com"
@@ -70,48 +96,56 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
+
       - name: Create a temporary music directory
         run: mkdir -p $MUSIC_DIRECTORY
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-audio
+          path: /tmp/music
       - name: Run unit tests
         run: pytest -v *_test.py
+
   publish:
-      name: "Publish Docker Image"
-      needs: unit-tests
-      runs-on: ubuntu-latest
-      if: github.event_name == 'release'
-      permissions:
-        packages: write
-        contents: read
-      steps:
-        - name: Checkout repo
-          uses: actions/checkout@v4
+    name: "Publish Docker Image"
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-        - name: Log in to Docker Hub
-          uses: docker/login-action@v3
-          with:
-            username: ${{ secrets.DOCKER_USERNAME }}
-            password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-        - name: Build and push image
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            push: true
-            tags: meteredby1/sanitag-cli:${{ github.ref_name }}
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: meteredby1/sanitag-cli:${{ github.ref_name }}
+
   notify:
     name: "Failure notification"
     runs-on: ubuntu-latest
-    if: failure()
+    needs: [security-audit, functional-test, unit-tests]
+    if: failure() && github.event_name != 'pull_request'
     steps:
       - name: Send email notification on failure
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
-          server_port: 465 #SSL for TLS use 587
+          server_port: 465 # SSL; for TLS use 587
           username: ${{ secrets.NO_REPLY_EMAIL }}
           password: ${{ secrets.NO_REPLY_PASSWORD }}
           subject: "Yielding SaniTag_CLI jobs failure"
-          to: ${{secrets.MY_EMAIL}}
-          from: ${{secrets.NO_REPLY_EMAIL }}
+          to: ${{ secrets.MY_EMAIL }}
+          from: ${{ secrets.NO_REPLY_EMAIL }}
           body: "You've an email. One or more of your jobs failed. Please review and correct them."

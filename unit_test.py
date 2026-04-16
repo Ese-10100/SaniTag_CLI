@@ -4,6 +4,7 @@ import sys
 import pytest
 import sqlite3
 from pathlib import Path
+from metadata_utils.audio_utils import view_audio_file
 from sanitation import run_audit_and_exec, __initSQL__, fetch_metadata, is_path_safe, clean_string
 
 @pytest.fixture()
@@ -68,3 +69,40 @@ def test_run_audit_and_exec(tmp_path, monkeypatch):
     run_audit_and_exec(dry_run=True, auto_approve=True, batch_size=1)
     # Check if the file has been renamed
     assert file.exists()
+
+# A new test to validate music tags from  mutagen
+class DummyAudio:
+    def __init__(self, tags):
+        self.tags = tags
+
+def test_mp3_with_tags(monkeypatch, tmp_path):
+    file_path = tmp_path / "Doja Cat - Disrespectful.mp3"
+    file_path.write_text("dummy")
+
+    monkeypatch.setattr("metadata_utils.audio_utils.MutagenFile",
+                        lambda *a, **kw: DummyAudio({"TIT2": ["Disrespectful"], "TPE1": ["Doja Cat"]}))
+
+    tags = view_audio_file(file_path)
+    assert tags["title"].lower() == "disrespectful"
+    assert tags["artist"].lower() == "doja cat"
+
+def test_m4a_with_tags(monkeypatch, tmp_path):
+    file_path = tmp_path / "Pop Smoke - Dior.m4a"
+    file_path.write_text("dummy")
+
+    monkeypatch.setattr("metadata_utils.audio_utils.MutagenFile",
+                        lambda *a, **kw: DummyAudio({"©nam": ["Dior"], "©ART": ["Pop Smoke"]}))
+
+    tags = view_audio_file(file_path)
+    assert tags["title"].lower() == "dior"
+    assert tags["artist"].lower() == "pop smoke"
+
+def test_filename_fallback(monkeypatch, tmp_path):
+    file_path = tmp_path / "Imagine Dragons - Warriors.m4a"
+    file_path.write_text("dummy")
+
+    monkeypatch.setattr("metadata_utils.audio_utils.MutagenFile", lambda *a, **kw: None)
+
+    tags = view_audio_file(file_path)
+    assert tags["title"].lower() == "warriors"
+    assert tags["artist"].lower() == "imagine dragons"

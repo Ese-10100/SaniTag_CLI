@@ -1,9 +1,14 @@
 ﻿*.mp3
 *.m4a
 *.env
+*.ini
 __pycache__/
 .vscode/
 *.log
 .gitattributes
 *.db
 *.pdf
+inspectdb.py
+story*.txt
+needs_remux_report.txt
+sanitagv1.txt
